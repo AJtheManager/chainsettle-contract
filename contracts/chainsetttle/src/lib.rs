@@ -1640,9 +1640,57 @@ pub enum DataKeyExt4 {
     /// admin ceiling applies cumulatively rather than per extension.
     TotalExpiryExtended(String),
 
+    // ── Restored missing variants ──────────────────────────────────────────
+    AppealFee,
+    AppealFeeDeposit(String, u32),
+    TotalVaulted(Address),
+    VaultBalance(Address, Address),
+    StandingOrder(u64),
+    NextStandingOrderId,
+    RefundRecipient(String),
+    IsConsortium(String),
+    CollateralSlashBpsPerMiss(String),
+    CollateralSlashedForMiss(String, u32),
+    ArbiterUnavailable(Address),
+    SkipBuyerAuth,
+    PendingAllowance,
+    FundFromVault(String),
+    MaxSummaryBatch,
+    SupplierEarned(Address, Address),
+    BuyerSpent(Address, Address),
+    DisputeHistory(Address),
+    RatingWindowLedgers,
+    ShipmentRated(String, Address),
+    CompletedAtLedger(String),
+    RatingAgg(Address),
+    PayoutAssignment(String),
+    LoserPaysArbiterFee(String),
+
+    // ── #557 Alternate collateral token ──────────────────────────────────────
+    CollateralToken(String),
+
+    // ── #558 Escrow token depeg guard ─────────────────────────────────────
+    DepegGuard(Address),
+
+    // ── #559 Global cap on total escrowed value ───────────────────────────
+    TvlCap(Address),
+
+    // ── #564 Contract-generated unique shipment IDs ───────────────────────
+    AutoIdCounter,
+
     // ── Granular per-operation pause flags ────────────────────────────────
     /// Granular per-operation pause flag: Symbol -> bool.
     OperationPaused(Symbol),
+}
+
+/// Invoice factoring: a supplier's receivable on a shipment assigned to a financier.
+/// While active, every supplier payout on the shipment is routed to `financier`.
+#[contracttype]
+#[derive(Clone, PartialEq, Debug)]
+pub struct PayoutAssignment {
+    pub supplier: Address,
+    pub financier: Address,
+    pub assigned_at_ledger: u32,
 }
 
 /// #549 – Pending proposal to move a shipment's `expires_at_ledger` later.
@@ -9296,7 +9344,7 @@ impl ChainSettleContract {
             .unwrap_or_else(|| {
                 env.storage()
                     .instance()
-                    .get(&DataKeyExt2::MinShipmentValueFloor)
+                    .get(&DataKey::MinShipmentValue)
                     .unwrap_or(0)
             });
         if effective_min_value > 0 && total_amount < effective_min_value {
@@ -9319,7 +9367,7 @@ impl ChainSettleContract {
             let min_pct: u32 = env
                 .storage()
                 .instance()
-                .get(&DataKey::MinMilestonePercentage)
+                .get(&DataKey::MinMilestonePercent)
                 .unwrap_or(0);
             let mut total_percent: u32 = 0;
             for i in 0..milestones.len() {
