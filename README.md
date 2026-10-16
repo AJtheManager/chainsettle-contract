@@ -133,3 +133,6 @@ MIT
 
 <!-- handsoff-issue-619 -->
 - #619: feat: exclude paused time from milestone deadlines
+
+<!-- handsoff-issue-630 -->
+- #630: feat: list shipments created within a ledger range
