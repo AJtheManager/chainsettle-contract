@@ -125,3 +125,8 @@ PRs welcome. Run `cargo fmt` and `cargo test` before submitting.
 ## License
 
 MIT
+
+## Handsoff notes
+
+<!-- handsoff-issue-653 -->
+- #653: feat: claimable balance query per address
