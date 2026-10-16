@@ -133,3 +133,6 @@ MIT
 
 <!-- handsoff-issue-646 -->
 - #646: feat: batch processing of expired shipments
+
+<!-- handsoff-issue-656 -->
+- #656: feat: consignee delivery acknowledgment
