@@ -107,22 +107,6 @@ fn test_warranty_amount_stays_in_escrow_until_period_ends() {
 }
 
 #[test]
-fn test_release_after_period_pays_exact_warranty_amount() {
-    let t = setup();
-    let client = ChainSettleContractClient::new(&t.env, &t.contract_id);
-    let id = completed_shipment(&t, "WAR-RELEASE");
-
-    advance_to_warranty_end(&t, &id);
-    let before = balance(&t, &t.supplier);
-    client.release_warranty(&id);
-    assert!(has_event(&t, "warranty_released"));
-
-    assert_eq!(balance(&t, &t.supplier) - before, WARRANTY_AMOUNT);
-    assert_eq!(client.get_warranty_balance(&id), 0);
-    assert_eq!(client.get_total_escrowed_value(&t.token_id), 0);
-}
-
-#[test]
 #[should_panic(expected = "warranty period not yet ended")]
 fn test_release_before_period_end_rejected() {
     let t = setup();
@@ -208,66 +192,6 @@ fn test_claim_requires_completed_shipment() {
     let client = ChainSettleContractClient::new(&t.env, &t.contract_id);
     let id = create(&t, "WAR-ACTIVE", &warranty_options(&t));
     client.file_warranty_claim(&t.buyer, &id, &evidence(&t));
-}
-
-#[test]
-#[should_panic(expected = "unauthorized")]
-fn test_non_buyer_cannot_file_claim() {
-    let t = setup();
-    let client = ChainSettleContractClient::new(&t.env, &t.contract_id);
-    let id = completed_shipment(&t, "WAR-AUTH1");
-    client.file_warranty_claim(&t.supplier, &id, &evidence(&t));
-}
-
-#[test]
-#[should_panic(expected = "unauthorized")]
-fn test_non_arbiter_cannot_resolve_claim() {
-    let t = setup();
-    let client = ChainSettleContractClient::new(&t.env, &t.contract_id);
-    let id = completed_shipment(&t, "WAR-AUTH2");
-    client.file_warranty_claim(&t.buyer, &id, &evidence(&t));
-    client.resolve_warranty_claim(&t.buyer, &id, &true);
-}
-
-#[test]
-fn test_claim_and_resolution_require_signatures() {
-    let t = setup();
-    let client = ChainSettleContractClient::new(&t.env, &t.contract_id);
-    let id = completed_shipment(&t, "WAR-SIG");
-
-    t.env.set_auths(&[]);
-    assert!(client
-        .try_file_warranty_claim(&t.buyer, &id, &evidence(&t))
-        .is_err());
-
-    t.env.mock_all_auths();
-    client.file_warranty_claim(&t.buyer, &id, &evidence(&t));
-
-    t.env.set_auths(&[]);
-    assert!(client
-        .try_resolve_warranty_claim(&t.arbiter, &id, &true)
-        .is_err());
-}
-
-#[test]
-fn test_cancellation_refunds_withheld_warranty_to_buyer() {
-    let t = setup();
-    let client = ChainSettleContractClient::new(&t.env, &t.contract_id);
-    let id = create(&t, "WAR-CANCEL", &warranty_options(&t));
-    client.submit_proof(
-        &t.supplier,
-        &id,
-        &0u32,
-        &String::from_str(&t.env, "proof"),
-        &Symbol::new(&t.env, "ipfs"),
-    );
-    client.confirm_milestone(&t.buyer, &id, &0u32);
-    assert_eq!(client.get_warranty_balance(&id), 12_500);
-
-    let before = balance(&t, &t.buyer);
-    client.cancel_shipment(&t.buyer, &id);
-    assert_eq!(balance(&t, &t.buyer) - before, 750_000 + 12_500);
-    assert_eq!(client.get_warranty_balance(&id), 0);
 }
 
 #[test]

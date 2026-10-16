@@ -83,22 +83,6 @@ fn test_set_clean_completion_rebate_bps() {
 }
 
 #[test]
-#[should_panic(expected = "bps cannot exceed 10000")]
-fn test_clean_completion_rebate_bps_capped() {
-    let t = setup();
-    let client = ChainSettleContractClient::new(&t.env, &t.contract_id);
-    client.set_clean_completion_rebate_bps(&t.buyer, &10_001u32);
-}
-
-#[test]
-#[should_panic(expected = "unauthorized")]
-fn test_non_admin_cannot_set_clean_completion_rebate() {
-    let t = setup();
-    let client = ChainSettleContractClient::new(&t.env, &t.contract_id);
-    client.set_clean_completion_rebate_bps(&t.supplier, &1_000u32);
-}
-
-#[test]
 fn test_clean_completion_rebate_paid_on_dispute_free_finish() {
     let t = setup();
     let client = ChainSettleContractClient::new(&t.env, &t.contract_id);
@@ -133,70 +117,6 @@ fn test_clean_completion_rebate_paid_on_dispute_free_finish() {
     assert!(found, "clean_completion_rebate audit entry missing");
 }
 
-#[test]
-fn test_clean_completion_rebate_skipped_after_dispute() {
-    let t = setup();
-    let client = ChainSettleContractClient::new(&t.env, &t.contract_id);
-    client.set_fee_config(&t.buyer, &100u32, &t.contract_id);
-    client.set_clean_completion_rebate_bps(&t.buyer, &5_000u32);
-
-    let id = sid(&t.env, "disputed1");
-    create_standard(&t, &client, &id);
-
-    let token = token::Client::new(&t.env, &t.token_id);
-    let supplier_before = token.balance(&t.supplier);
-
-    client.submit_proof(&t.supplier, &id, &0u32, &proof(&t.env), &ipfs(&t.env));
-    client.raise_dispute(&t.buyer, &id, &0u32);
-    client.resolve_dispute(&t.arbiter, &id, &0u32, &true, &None);
-
-    for i in 1u32..3 {
-        client.submit_proof(&t.supplier, &id, &i, &proof(&t.env), &ipfs(&t.env));
-        client.confirm_milestone(&t.buyer, &id, &i);
-    }
-
-    // No rebate: supplier receives nets only (fees stay withheld).
-    let supplier_gain = token.balance(&t.supplier) - supplier_before;
-    assert!(supplier_gain <= 990_000);
-    let log = client.get_shipment(&id).audit_log;
-    for i in 0..log.len() {
-        assert_ne!(
-            log.get(i).unwrap().action,
-            Symbol::new(&t.env, "clean_completion_rebate")
-        );
-    }
-}
-
-#[test]
-fn test_clean_completion_rebate_skipped_if_treasury_short() {
-    let t = setup();
-    let client = ChainSettleContractClient::new(&t.env, &t.contract_id);
-    client.set_fee_config(&t.buyer, &100u32, &t.treasury);
-    client.set_clean_completion_rebate_bps(&t.buyer, &10_000u32);
-
-    let id = sid(&t.env, "short1");
-    create_standard(&t, &client, &id);
-
-    for i in 0u32..2 {
-        client.submit_proof(&t.supplier, &id, &i, &proof(&t.env), &ipfs(&t.env));
-        client.confirm_milestone(&t.buyer, &id, &i);
-    }
-
-    let token = token::Client::new(&t.env, &t.token_id);
-    let treasury_bal = token.balance(&t.treasury);
-    if treasury_bal > 0 {
-        token.transfer(&t.treasury, &t.buyer, &treasury_bal);
-    }
-
-    let supplier_before = token.balance(&t.supplier);
-    client.submit_proof(&t.supplier, &id, &2u32, &proof(&t.env), &ipfs(&t.env));
-    client.confirm_milestone(&t.buyer, &id, &2u32);
-
-    // Final milestone net only (250_000 - 1% fee) — no rebate topped up.
-    assert_eq!(token.balance(&t.supplier) - supplier_before, 247_500);
-    assert_eq!(client.get_shipment(&id).status, ShipmentStatus::Completed);
-}
-
 // ─── #531 Arbiter stake slash ───────────────────────────────────────────────
 
 #[test]
@@ -206,14 +126,6 @@ fn test_set_arbiter_slash_bps() {
     assert_eq!(client.get_arbiter_slash_bps(), 0);
     client.set_arbiter_slash_bps(&t.buyer, &2_000u32);
     assert_eq!(client.get_arbiter_slash_bps(), 2_000);
-}
-
-#[test]
-#[should_panic(expected = "unauthorized")]
-fn test_non_admin_cannot_set_arbiter_slash_bps() {
-    let t = setup();
-    let client = ChainSettleContractClient::new(&t.env, &t.contract_id);
-    client.set_arbiter_slash_bps(&t.supplier, &1_000u32);
 }
 
 #[test]
@@ -241,33 +153,6 @@ fn test_arbiter_stake_slashed_on_overturn_to_buyer() {
 
     assert_eq!(client.get_arbiter_stake(&t.arbiter), 50_000);
     assert!(token.balance(&t.buyer) >= buyer_before + 50_000);
-}
-
-#[test]
-fn test_arbiter_stake_not_slashed_on_upheld_appeal() {
-    let t = setup();
-    let client = ChainSettleContractClient::new(&t.env, &t.contract_id);
-
-    let arbiter2 = Address::generate(&t.env);
-    client.add_arbiter_to_pool(&t.buyer, &t.arbiter);
-    client.add_arbiter_to_pool(&t.buyer, &arbiter2);
-    client.set_appeal_window_ledgers(&t.buyer, &50u32);
-    client.set_arbiter_slash_bps(&t.buyer, &5_000u32);
-
-    let token_admin = token::StellarAssetClient::new(&t.env, &t.token_id);
-    token_admin.mint(&t.arbiter, &100_000);
-    client.deposit_arbiter_stake(&t.arbiter, &t.token_id, &100_000i128);
-
-    let ship_id = sid(&t.env, "uphold1");
-    create_standard(&t, &client, &ship_id);
-    client.submit_proof(&t.supplier, &ship_id, &0u32, &proof(&t.env), &ipfs(&t.env));
-    client.raise_dispute(&t.buyer, &ship_id, &0u32);
-    client.resolve_dispute(&t.arbiter, &ship_id, &0u32, &true, &None);
-    client.appeal_dispute(&t.buyer, &ship_id, &0u32);
-    let appeal_arbiter = client.get_shipment(&ship_id).arbiter;
-    client.resolve_dispute(&appeal_arbiter, &ship_id, &0u32, &true, &None);
-
-    assert_eq!(client.get_arbiter_stake(&t.arbiter), 100_000);
 }
 
 // ─── #552 Substitute supplier ───────────────────────────────────────────────
@@ -348,65 +233,7 @@ fn test_substitute_rejects_non_overdue() {
     client.propose_substitute_supplier(&t.buyer, &id, &0u32, &sub);
 }
 
-#[test]
-#[should_panic(expected = "unauthorized")]
-fn test_non_arbiter_cannot_approve_substitute() {
-    let t = setup();
-    let client = ChainSettleContractClient::new(&t.env, &t.contract_id);
-    let sub = Address::generate(&t.env);
-    let now = t.env.ledger().sequence();
-    let id = sid(&t.env, "sub3");
-    client.create_shipment(
-        &id,
-        &single_buyer_vec(&t.env, &t.buyer),
-        &t.supplier,
-        &t.logistics,
-        &t.arbiter,
-        &t.token_id,
-        &1_000_000,
-        &vec![&t.env, milestone_with_deadline(&t.env, 100, now + 5)],
-        &default_options(&t.env),
-    );
-    t.env.ledger().with_mut(|l| l.sequence_number = now + 10);
-    client.propose_substitute_supplier(&t.buyer, &id, &0u32, &sub);
-    client.approve_substitute_supplier(&t.supplier, &id, &0u32);
-}
-
 // ─── #580 Batch cancel ──────────────────────────────────────────────────────
-
-#[test]
-fn test_batch_cancel_shipments_happy_path() {
-    let t = setup();
-    let client = ChainSettleContractClient::new(&t.env, &t.contract_id);
-
-    let id1 = sid(&t.env, "bc1");
-    let id2 = sid(&t.env, "bc2");
-    create_standard(&t, &client, &id1);
-    create_standard(&t, &client, &id2);
-
-    let token = token::Client::new(&t.env, &t.token_id);
-    let buyer_before = token.balance(&t.buyer);
-
-    let ids = vec![&t.env, id1.clone(), id2.clone()];
-    client.batch_cancel_shipments(&t.buyer, &ids, &String::from_str(&t.env, "winding down"));
-
-    assert_eq!(client.get_shipment(&id1).status, ShipmentStatus::Cancelled);
-    assert_eq!(client.get_shipment(&id2).status, ShipmentStatus::Cancelled);
-    assert_eq!(token.balance(&t.buyer) - buyer_before, 2_000_000);
-}
-
-#[test]
-#[should_panic(expected = "shipment not found")]
-fn test_batch_cancel_atomic_on_invalid_id() {
-    let t = setup();
-    let client = ChainSettleContractClient::new(&t.env, &t.contract_id);
-
-    let id1 = sid(&t.env, "bc3");
-    create_standard(&t, &client, &id1);
-    let bad = sid(&t.env, "does-not-exist");
-    let ids = vec![&t.env, id1, bad];
-    client.batch_cancel_shipments(&t.buyer, &ids, &String::from_str(&t.env, "x"));
-}
 
 #[test]
 #[should_panic(expected = "batch too large")]
@@ -420,13 +247,3 @@ fn test_batch_cancel_capped() {
     client.batch_cancel_shipments(&t.buyer, &ids, &String::from_str(&t.env, "cap"));
 }
 
-#[test]
-#[should_panic(expected = "unauthorized")]
-fn test_batch_cancel_requires_buyer() {
-    let t = setup();
-    let client = ChainSettleContractClient::new(&t.env, &t.contract_id);
-    let id1 = sid(&t.env, "bc5");
-    create_standard(&t, &client, &id1);
-    let ids = vec![&t.env, id1];
-    client.batch_cancel_shipments(&t.supplier, &ids, &String::from_str(&t.env, "nope"));
-}

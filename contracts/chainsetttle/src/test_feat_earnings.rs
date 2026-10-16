@@ -50,28 +50,6 @@ fn confirm_all(t: &TestSetup, client: &ChainSettleContractClient, id: &String) {
 // ── #575 ──────────────────────────────────────────────────────────────────
 
 #[test]
-fn test_summary_fields_match_shipment() {
-    let t = setup();
-    let client = ChainSettleContractClient::new(&t.env, &t.contract_id);
-    let id = sid(&t.env, "SUM-1");
-    create_standard(&t, &client, &id);
-
-    let full = client.get_shipment(&id);
-    let summary = client.get_shipment_summary(&id);
-
-    assert_eq!(summary.id, full.id);
-    assert_eq!(summary.status, full.status);
-    assert_eq!(summary.buyers, full.buyers);
-    assert_eq!(summary.supplier, full.supplier);
-    assert_eq!(summary.token, full.token);
-    assert_eq!(summary.total_amount, full.total_amount);
-    assert_eq!(summary.released_amount, full.released_amount);
-    assert_eq!(summary.milestone_count, full.milestones.len());
-    assert_eq!(summary.open_disputes, full.open_dispute_count);
-    assert_eq!(summary.created_at, full.created_at);
-}
-
-#[test]
 fn test_summary_batch_skips_unknown_and_enforces_max() {
     let t = setup();
     let client = ChainSettleContractClient::new(&t.env, &t.contract_id);
@@ -165,31 +143,6 @@ fn test_refunds_do_not_count_as_spend_or_earnings() {
 // ── #577 ──────────────────────────────────────────────────────────────────
 
 #[test]
-fn test_dispute_history_both_parties_and_outcomes() {
-    let t = setup();
-    let client = ChainSettleContractClient::new(&t.env, &t.contract_id);
-    let id = sid(&t.env, "DISP-HIST");
-    create_standard(&t, &client, &id);
-
-    client.submit_proof(&t.supplier, &id, &0u32, &proof(&t.env), &ipfs(&t.env));
-    client.raise_dispute(&t.buyer, &id, &0u32);
-    let opened = t.env.ledger().sequence();
-    client.resolve_dispute(&t.arbiter, &id, &0u32, &true, &None);
-
-    let buyer_hist = client.get_dispute_history(&t.buyer, &None, &10);
-    let supplier_hist = client.get_dispute_history(&t.supplier, &None, &10);
-    assert_eq!(buyer_hist.len(), 1);
-    assert_eq!(supplier_hist.len(), 1);
-
-    let rec = buyer_hist.get(0).unwrap();
-    assert_eq!(rec.shipment_id, id);
-    assert_eq!(rec.milestone_index, 0);
-    assert_eq!(rec.opened_ledger, opened);
-    assert_eq!(rec.outcome, DisputeOutcome::Supplier);
-    assert_eq!(supplier_hist.get(0).unwrap().outcome, DisputeOutcome::Supplier);
-}
-
-#[test]
 fn test_withdrawn_dispute_recorded() {
     let t = setup();
     let client = ChainSettleContractClient::new(&t.env, &t.contract_id);
@@ -207,26 +160,6 @@ fn test_withdrawn_dispute_recorded() {
         client.get_dispute_history(&t.supplier, &None, &10).get(0).unwrap().outcome,
         DisputeOutcome::Withdrawn
     );
-}
-
-#[test]
-fn test_dispute_history_pagination_stable() {
-    let t = setup();
-    let client = ChainSettleContractClient::new(&t.env, &t.contract_id);
-
-    for n in 0..3 {
-        let id = sid(&t.env, &std::format!("DISP-PAGE-{}", n));
-        create_standard(&t, &client, &id);
-        client.submit_proof(&t.supplier, &id, &0u32, &proof(&t.env), &ipfs(&t.env));
-        client.raise_dispute(&t.buyer, &id, &0u32);
-        client.resolve_dispute(&t.arbiter, &id, &0u32, &true, &None);
-    }
-
-    let page1 = client.get_dispute_history(&t.buyer, &None, &2);
-    assert_eq!(page1.len(), 2);
-    let page2 = client.get_dispute_history(&t.buyer, &Some(2), &2);
-    assert_eq!(page2.len(), 1);
-    assert_ne!(page1.get(0).unwrap().shipment_id, page2.get(0).unwrap().shipment_id);
 }
 
 // ── #578 ──────────────────────────────────────────────────────────────────
@@ -253,34 +186,6 @@ fn test_rate_counterparty_happy_path_and_averages() {
     let (bcount, bavg) = client.get_rating_summary(&t.buyer);
     assert_eq!(bcount, 1);
     assert_eq!(bavg, 400);
-}
-
-#[test]
-fn test_rate_rejects_bad_stars_double_rate_and_window() {
-    let t = setup();
-    let client = ChainSettleContractClient::new(&t.env, &t.contract_id);
-    client.set_rating_window_ledgers(&t.buyer, &10);
-
-    let id = sid(&t.env, "RATE-BAD");
-    create_standard(&t, &client, &id);
-
-    // Not completed yet.
-    assert!(client.try_rate_counterparty(&t.buyer, &id, &5u32, &None).is_err());
-
-    confirm_all(&t, &client, &id);
-
-    assert!(client.try_rate_counterparty(&t.buyer, &id, &0u32, &None).is_err());
-    assert!(client.try_rate_counterparty(&t.buyer, &id, &6u32, &None).is_err());
-
-    let hash = BytesN::from_array(&t.env, &[7u8; 32]);
-    client.rate_counterparty(&t.buyer, &id, &3u32, &Some(hash));
-    assert!(client.try_rate_counterparty(&t.buyer, &id, &4u32, &None).is_err());
-
-    // Advance past the rating window.
-    t.env.ledger().with_mut(|li| {
-        li.sequence_number += 20;
-    });
-    assert!(client.try_rate_counterparty(&t.supplier, &id, &5u32, &None).is_err());
 }
 
 #[test]

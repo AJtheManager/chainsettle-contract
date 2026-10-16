@@ -7,6 +7,12 @@
         "caller": "Contract(CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITA4)",
         "detail": "Symbol(create_shipment)",
         "ledger": 0
+      },
+      {
+        "action": "Symbol(shipment_cancelled)",
+        "caller": "Contract(CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITA4)",
+        "detail": "Symbol(cancel_shipment)",
+        "ledger": 0
       }
     ],
     "auto_confirm_ledgers": 0,

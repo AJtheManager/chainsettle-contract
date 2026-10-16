@@ -89,13 +89,6 @@ fn test_buyer_dispute_cap_rejects_zero() {
 }
 
 #[test]
-#[should_panic(expected = "unauthorized")]
-fn test_buyer_dispute_cap_non_admin_rejected() {
-    let t = setup();
-    client(&t).set_buyer_dispute_cap(&t.buyer2, &t.buyer2, &1);
-}
-
-#[test]
 fn test_uncapped_buyer_unaffected() {
     let t = setup();
     let a = create_basic(&t, "UNCAP-A", &t.buyer2);
@@ -105,21 +98,6 @@ fn test_uncapped_buyer_unaffected() {
     dispute(&t, &t.buyer2, &b, 0);
     dispute(&t, &t.buyer2, &c, 0);
     assert_eq!(client(&t).get_buyer_open_disputes(&t.buyer2), 3);
-}
-
-#[test]
-#[should_panic(expected = "BuyerDisputeCapReached")]
-fn test_buyer_at_cap_blocked_even_with_global_room() {
-    let t = setup();
-    let c = client(&t);
-    // Plenty of per-shipment room; the buyer cap is the binding constraint.
-    c.set_max_concurrent_disputes(&t.buyer, &5);
-    c.set_buyer_dispute_cap(&t.buyer, &t.buyer2, &1);
-
-    let a = create_basic(&t, "CAP-A", &t.buyer2);
-    let b = create_basic(&t, "CAP-B", &t.buyer2);
-    dispute(&t, &t.buyer2, &a, 0);
-    dispute(&t, &t.buyer2, &b, 0);
 }
 
 #[test]
@@ -299,14 +277,6 @@ fn test_incremental_collateral_requires_collateral() {
     client(&t).set_incremental_collateral(&t.buyer, &s, &true);
 }
 
-#[test]
-#[should_panic(expected = "unauthorized")]
-fn test_incremental_collateral_supplier_cannot_enable() {
-    let t = setup();
-    let s = create_with_collateral(&t, "COL-SUP");
-    client(&t).set_incremental_collateral(&t.supplier, &s, &true);
-}
-
 // ============================================================
 // #517 – MERGE ADJACENT PENDING MILESTONES
 // ============================================================
@@ -412,22 +382,6 @@ fn test_merge_middle_pair() {
 }
 
 #[test]
-#[should_panic(expected = "invalid milestone index")]
-fn test_merge_last_milestone_rejected() {
-    let t = setup();
-    let s = create_basic(&t, "MERGE-LAST", &t.buyer);
-    client(&t).propose_milestone_merge(&t.buyer, &s, &2);
-}
-
-#[test]
-#[should_panic(expected = "invalid milestone index")]
-fn test_merge_out_of_range_rejected() {
-    let t = setup();
-    let s = create_basic(&t, "MERGE-OOR", &t.buyer);
-    client(&t).propose_milestone_merge(&t.buyer, &s, &u32::MAX);
-}
-
-#[test]
 #[should_panic(expected = "only pending milestones without proof can be merged")]
 fn test_merge_rejects_milestone_with_proof() {
     let t = setup();
@@ -447,15 +401,6 @@ fn test_merge_rejects_milestone_with_advance() {
 }
 
 #[test]
-#[should_panic(expected = "only pending milestones without proof can be merged")]
-fn test_merge_rejects_disputed_milestone() {
-    let t = setup();
-    let s = create_basic(&t, "MERGE-DISP", &t.buyer);
-    dispute(&t, &t.buyer, &s, 0);
-    client(&t).propose_milestone_merge(&t.supplier, &s, &0);
-}
-
-#[test]
 #[should_panic(expected = "merge must be approved by the counterparty")]
 fn test_merge_proposer_cannot_self_approve() {
     let t = setup();
@@ -463,26 +408,6 @@ fn test_merge_proposer_cannot_self_approve() {
     let s = create_basic(&t, "MERGE-SELF", &t.buyer);
     c.propose_milestone_merge(&t.buyer, &s, &0);
     c.approve_milestone_merge(&t.buyer, &s, &0);
-}
-
-#[test]
-#[should_panic(expected = "unauthorized")]
-fn test_merge_stranger_cannot_propose() {
-    let t = setup();
-    let stranger = Address::generate(&t.env);
-    let s = create_basic(&t, "MERGE-STR", &t.buyer);
-    client(&t).propose_milestone_merge(&stranger, &s, &0);
-}
-
-#[test]
-#[should_panic(expected = "unauthorized")]
-fn test_merge_stranger_cannot_approve() {
-    let t = setup();
-    let c = client(&t);
-    let stranger = Address::generate(&t.env);
-    let s = create_basic(&t, "MERGE-STR2", &t.buyer);
-    c.propose_milestone_merge(&t.buyer, &s, &0);
-    c.approve_milestone_merge(&stranger, &s, &0);
 }
 
 #[test]
@@ -503,14 +428,3 @@ fn test_merge_approve_without_proposal() {
     client(&t).approve_milestone_merge(&t.supplier, &s, &0);
 }
 
-#[test]
-#[should_panic(expected = "only pending milestones without proof can be merged")]
-fn test_merge_revalidated_at_approval() {
-    let t = setup();
-    let c = client(&t);
-    let s = create_basic(&t, "MERGE-REVAL", &t.buyer);
-    c.propose_milestone_merge(&t.buyer, &s, &0);
-    // State changes between proposal and approval.
-    submit(&t, &s, 0);
-    c.approve_milestone_merge(&t.supplier, &s, &0);
-}

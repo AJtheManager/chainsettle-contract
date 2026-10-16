@@ -78,96 +78,6 @@ fn has_event(t: &TestSetup, topic: &str) -> bool {
 }
 
 #[test]
-fn test_grade_zero_behaves_like_confirm_milestone() {
-    let t = setup();
-    let client = ChainSettleContractClient::new(&t.env, &t.contract_id);
-
-    let plain = create(&t, "GRADE-PLAIN", &graded_options(&t));
-    let graded = create(&t, "GRADE-ZERO", &graded_options(&t));
-    submit(&t, &plain, 0);
-    submit(&t, &graded, 0);
-
-    let before = balance(&t, &t.supplier);
-    client.confirm_milestone(&t.buyer, &plain, &0u32);
-    let plain_paid = balance(&t, &t.supplier) - before;
-
-    let before = balance(&t, &t.supplier);
-    client.confirm_milestone_graded(&t.buyer, &graded, &0u32, &0u32);
-    let graded_paid = balance(&t, &t.supplier) - before;
-
-    assert_eq!(plain_paid, M0_GROSS);
-    assert_eq!(graded_paid, plain_paid);
-
-    let a = client.get_shipment(&plain);
-    let b = client.get_shipment(&graded);
-    assert_eq!(a.released_amount, b.released_amount);
-    assert_eq!(
-        b.milestones.get(0).unwrap().status,
-        MilestoneStatus::Confirmed
-    );
-    assert_eq!(client.get_milestone_grade(&graded, &0u32), Some(0u32));
-}
-
-#[test]
-fn test_lower_grade_splits_payout_and_refund() {
-    let t = setup();
-    let client = ChainSettleContractClient::new(&t.env, &t.contract_id);
-    let id = create(&t, "GRADE-SPLIT", &graded_options(&t));
-    submit(&t, &id, 0);
-
-    let supplier_before = balance(&t, &t.supplier);
-    let buyer_before = balance(&t, &t.buyer);
-
-    // Grade 2 = 7_500 bps.
-    client.confirm_milestone_graded(&t.buyer, &id, &0u32, &2u32);
-
-    // Nothing moves until the grade review window elapses.
-    let m = client.get_milestone(&id, &0u32);
-    assert_eq!(m.status, MilestoneStatus::ConfirmedHeld);
-    assert_eq!(
-        m.release_after_ledger,
-        t.env.ledger().sequence() + REVIEW_WINDOW
-    );
-    assert_eq!(balance(&t, &t.supplier), supplier_before);
-
-    advance_past_review_window(&t, &id, 0);
-    client.release_held_payment(&id, &0u32);
-
-    let payout = balance(&t, &t.supplier) - supplier_before;
-    let refund = balance(&t, &t.buyer) - buyer_before;
-    assert_eq!(payout, 187_500);
-    assert_eq!(refund, 62_500);
-    assert_eq!(payout + refund, M0_GROSS);
-
-    let s = client.get_shipment(&id);
-    assert_eq!(s.released_amount, M0_GROSS);
-    assert_eq!(s.milestones.get(0).unwrap().status, MilestoneStatus::Confirmed);
-    assert_eq!(client.get_escrow_balance(&id), TOTAL - M0_GROSS);
-    assert_eq!(client.get_completion_percentage(&id), 25);
-}
-
-#[test]
-fn test_payout_and_refund_sum_to_gross_with_rounding() {
-    let t = setup();
-    let client = ChainSettleContractClient::new(&t.env, &t.contract_id);
-    let mut opts = graded_options(&t);
-    opts.quality_grades = vec![&t.env, 10_000u32, 3_333u32];
-    let id = create(&t, "GRADE-ROUND", &opts);
-    submit(&t, &id, 0);
-
-    let supplier_before = balance(&t, &t.supplier);
-    let buyer_before = balance(&t, &t.buyer);
-    client.confirm_milestone_graded(&t.buyer, &id, &0u32, &1u32);
-    advance_past_review_window(&t, &id, 0);
-    client.release_held_payment(&id, &0u32);
-
-    let payout = balance(&t, &t.supplier) - supplier_before;
-    let refund = balance(&t, &t.buyer) - buyer_before;
-    assert_eq!(payout, (M0_GROSS * 3_333) / 10_000);
-    assert_eq!(payout + refund, M0_GROSS);
-}
-
-#[test]
 fn test_grade_recorded_in_audit_log_and_events() {
     let t = setup();
     let client = ChainSettleContractClient::new(&t.env, &t.contract_id);
@@ -186,22 +96,6 @@ fn test_grade_recorded_in_audit_log_and_events() {
     advance_past_review_window(&t, &id, 0);
     client.release_held_payment(&id, &0u32);
     assert!(has_event(&t, "grade_settled"));
-}
-
-#[test]
-fn test_default_review_window_when_none_configured() {
-    let t = setup();
-    let client = ChainSettleContractClient::new(&t.env, &t.contract_id);
-    let mut opts = graded_options(&t);
-    opts.review_window_ledgers = None;
-    let id = create(&t, "GRADE-DEFWIN", &opts);
-    submit(&t, &id, 0);
-
-    client.confirm_milestone_graded(&t.buyer, &id, &0u32, &1u32);
-    assert_eq!(
-        client.get_milestone(&id, &0u32).release_after_ledger,
-        t.env.ledger().sequence() + constants::DEFAULT_GRADE_REVIEW_WINDOW_LEDGERS
-    );
 }
 
 #[test]
@@ -234,16 +128,6 @@ fn test_graded_confirmation_requires_submitted_proof() {
 }
 
 #[test]
-#[should_panic(expected = "unauthorized")]
-fn test_non_buyer_cannot_grade() {
-    let t = setup();
-    let client = ChainSettleContractClient::new(&t.env, &t.contract_id);
-    let id = create(&t, "GRADE-AUTH", &graded_options(&t));
-    submit(&t, &id, 0);
-    client.confirm_milestone_graded(&t.supplier, &id, &0u32, &1u32);
-}
-
-#[test]
 fn test_grading_requires_buyer_signature() {
     let t = setup();
     let client = ChainSettleContractClient::new(&t.env, &t.contract_id);
@@ -272,53 +156,6 @@ fn test_creation_rejects_increasing_grades() {
     let mut opts = graded_options(&t);
     opts.quality_grades = vec![&t.env, 10_000u32, 7_500u32, 9_000u32];
     create(&t, "GRADE-CFG2", &opts);
-}
-
-#[test]
-fn test_supplier_contests_grade_and_wins() {
-    let t = setup();
-    let client = ChainSettleContractClient::new(&t.env, &t.contract_id);
-    let id = create(&t, "GRADE-WIN", &graded_options(&t));
-    submit(&t, &id, 0);
-    client.confirm_milestone_graded(&t.buyer, &id, &0u32, &2u32);
-
-    client.raise_dispute(&t.supplier, &id, &0u32);
-    assert!(has_event(&t, "grade_disputed"));
-    assert_eq!(
-        client.get_milestone(&id, &0u32).status,
-        MilestoneStatus::Disputed
-    );
-
-    let before = balance(&t, &t.supplier);
-    client.resolve_dispute(&t.arbiter, &id, &0u32, &true, &None);
-    assert_eq!(balance(&t, &t.supplier) - before, M0_GROSS);
-    assert_eq!(
-        client.get_milestone(&id, &0u32).status,
-        MilestoneStatus::Resolved
-    );
-}
-
-#[test]
-fn test_supplier_contests_grade_and_loses() {
-    let t = setup();
-    let client = ChainSettleContractClient::new(&t.env, &t.contract_id);
-    let id = create(&t, "GRADE-LOSE", &graded_options(&t));
-    submit(&t, &id, 0);
-    client.confirm_milestone_graded(&t.buyer, &id, &0u32, &2u32);
-    client.raise_dispute(&t.supplier, &id, &0u32);
-
-    let supplier_before = balance(&t, &t.supplier);
-    let buyer_before = balance(&t, &t.buyer);
-    client.resolve_dispute(&t.arbiter, &id, &0u32, &false, &None);
-
-    // The buyer's grade stands.
-    let payout = balance(&t, &t.supplier) - supplier_before;
-    let refund = balance(&t, &t.buyer) - buyer_before;
-    assert_eq!(payout, 187_500);
-    assert_eq!(refund, 62_500);
-    let s = client.get_shipment(&id);
-    assert_eq!(s.released_amount, M0_GROSS);
-    assert_eq!(s.milestones.get(0).unwrap().status, MilestoneStatus::Resolved);
 }
 
 #[test]

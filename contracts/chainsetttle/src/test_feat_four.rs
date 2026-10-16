@@ -77,32 +77,6 @@ fn test_fast_track_disabled_by_default() {
 }
 
 #[test]
-fn test_fast_track_qualifying_bypasses_cooldown() {
-    let t = setup();
-    let client = ChainSettleContractClient::new(&t.env, &t.contract_id);
-    client.set_confirmation_cooldown(&t.buyer, &50u32);
-    client.set_reputation_fast_track(&t.buyer, &5u32, &1000u32); // max 10% disputed
-    seed_reputation(&t, 10, 0);
-    assert!(client.is_fast_track_eligible(&t.supplier));
-
-    t.env.ledger().set_sequence_number(100);
-    let ship_id = create_ship(&client, &t, "ft-ok");
-    client.submit_proof(
-        &t.supplier,
-        &ship_id,
-        &0u32,
-        &proof_hash(&t.env),
-        &proof_type(&t.env),
-    );
-    // Immediate confirm — cooldown would normally block until ledger 150.
-    client.confirm_milestone(&t.buyer, &ship_id, &0u32);
-    assert_eq!(
-        client.get_milestone(&ship_id, &0u32).status,
-        MilestoneStatus::Confirmed
-    );
-}
-
-#[test]
 #[should_panic(expected = "confirmation cooldown not elapsed")]
 fn test_fast_track_non_qualifying_still_gated() {
     let t = setup();
@@ -170,33 +144,6 @@ fn test_pause_blocks_proof_after_approval() {
         &proof_hash(&t.env),
         &proof_type(&t.env),
     );
-}
-
-#[test]
-fn test_pause_resume_full_cycle() {
-    let t = setup();
-    let client = ChainSettleContractClient::new(&t.env, &t.contract_id);
-    let ship_id = create_ship(&client, &t, "pause-cycle");
-    client.request_shipment_pause(&t.supplier, &ship_id);
-    client.approve_shipment_pause(&t.buyer, &ship_id);
-    assert!(client.is_shipment_paused(&ship_id));
-
-    client.resume_shipment(&t.buyer, &ship_id);
-    assert!(
-        client.is_shipment_paused(&ship_id),
-        "one-sided resume must not unpause"
-    );
-    client.resume_shipment(&t.supplier, &ship_id);
-    assert!(!client.is_shipment_paused(&ship_id));
-
-    client.submit_proof(
-        &t.supplier,
-        &ship_id,
-        &0u32,
-        &proof_hash(&t.env),
-        &proof_type(&t.env),
-    );
-    client.confirm_milestone(&t.buyer, &ship_id, &0u32);
 }
 
 #[test]

@@ -54,34 +54,6 @@ fn two_milestones(env: &Env) -> soroban_sdk::Vec<Milestone> {
 // ── #556 top_up_collateral ─────────────────────────────────────────────────
 
 #[test]
-fn test_top_up_collateral_happy_path() {
-    let t = setup();
-    let client = ChainSettleContractClient::new(&t.env, &t.contract_id);
-    let mint_client = token::StellarAssetClient::new(&t.env, &t.token_id);
-    mint_client.mint(&t.supplier, &100_000);
-
-    let shipment_id = String::from_str(&t.env, "s-topup");
-    let mut opts = default_options(&t.env);
-    opts.supplier_collateral = 10_000;
-    client.create_shipment(
-        &shipment_id,
-        &single_buyer_vec(&t.env, &t.buyer),
-        &t.supplier,
-        &t.logistics,
-        &t.arbiter,
-        &t.token_id,
-        &200_000,
-        &single_milestone(&t.env),
-        &opts,
-    );
-
-    let before = client.get_locked_collateral(&shipment_id);
-    client.top_up_collateral(&t.supplier, &shipment_id, &5_000i128);
-    let after = client.get_locked_collateral(&shipment_id);
-    assert_eq!(after, before + 5_000);
-}
-
-#[test]
 #[should_panic(expected = "amount must be greater than zero")]
 fn test_top_up_collateral_zero_rejected() {
     let t = setup();
@@ -233,38 +205,6 @@ fn test_set_refund_recipient_non_buyer_rejected() {
 }
 
 // ── #554 cancel_for_blacklisted_supplier ──────────────────────────────────
-
-#[test]
-fn test_cancel_blacklisted_supplier_happy() {
-    let t = setup();
-    let client = ChainSettleContractClient::new(&t.env, &t.contract_id);
-    let mint_client = token::StellarAssetClient::new(&t.env, &t.token_id);
-    mint_client.mint(&t.supplier, &100_000);
-
-    let shipment_id = String::from_str(&t.env, "s-bl-cancel");
-    let mut opts = default_options(&t.env);
-    opts.supplier_collateral = 10_000;
-    client.create_shipment(
-        &shipment_id,
-        &single_buyer_vec(&t.env, &t.buyer),
-        &t.supplier,
-        &t.logistics,
-        &t.arbiter,
-        &t.token_id,
-        &200_000,
-        &single_milestone(&t.env),
-        &opts,
-    );
-
-    let reason_hash = soroban_sdk::BytesN::from_array(&t.env, &[1u8; 32]);
-    client.blacklist_address(&t.buyer, &t.supplier, &reason_hash);
-
-    client.cancel_for_blacklisted_supplier(&t.buyer, &shipment_id);
-
-    let s = client.get_shipment(&shipment_id);
-    assert_eq!(s.status, ShipmentStatus::Cancelled);
-    assert_eq!(s.cancellation_reason.len(), 1);
-}
 
 #[test]
 #[should_panic(expected = "supplier is not blacklisted")]

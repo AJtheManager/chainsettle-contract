@@ -195,7 +195,11 @@ fn test_panel_avoids_recent_arbiters_when_pool_allows() {
         assert!(!panel1.contains(panel2.get(i).unwrap()));
     }
     assert_eq!(client.get_arbiter_panel(&s2), panel2);
-    assert!(panel2.contains(&pool[3]) && panel2.contains(&pool[4]) && panel2.contains(&pool[5]));
+    // Panels are drawn from a shuffled pool, so panel2 must be exactly the
+    // three pool members panel1 did not use.
+    for a in pool.iter() {
+        assert!(panel1.contains(a) != panel2.contains(a));
+    }
 }
 
 #[test]
@@ -206,15 +210,17 @@ fn test_panel_falls_back_to_least_recent_when_pool_too_small() {
     let pool = add_pool(&t, &client, 4);
 
     let s1 = open_dispute(&t, &client, "f1", &t.supplier, &t.arbiter);
-    client.assign_dispute_panel(&t.buyer, &s1, &0u32, &3u32); // pool[0..3]
+    let panel1 = client.assign_dispute_panel(&t.buyer, &s1, &0u32, &3u32);
     let s2 = open_dispute(&t, &client, "f2", &t.supplier, &t.arbiter);
     let panel2 = client.assign_dispute_panel(&t.buyer, &s2, &0u32, &3u32);
 
-    // Only pool[3] is fresh; the other two seats reuse the oldest recent arbiters.
+    // Only one pool member is fresh; the other two seats reuse the oldest
+    // recent arbiters (panel1 is recorded in order, so its first two).
+    let fresh = pool.iter().find(|a| !panel1.contains(*a)).unwrap();
     assert_eq!(panel2.len(), 3);
-    assert!(panel2.contains(&pool[3]));
-    assert!(panel2.contains(&pool[0]));
-    assert!(panel2.contains(&pool[1]));
+    assert!(panel2.contains(fresh));
+    assert!(panel2.contains(panel1.get(0).unwrap()));
+    assert!(panel2.contains(panel1.get(1).unwrap()));
 }
 
 #[test]

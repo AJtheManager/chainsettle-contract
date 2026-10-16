@@ -1,10 +1,10 @@
 #![cfg(test)]
 
 use super::*;
-use crate::test_common::{build_milestones, default_options, setup, TestSetup};
+use crate::test_common::{build_milestones, default_options, setup, submit_proof_for_milestone, TestSetup};
 use soroban_sdk::{
-    testutils::{Address as _, Events, Ledger as _},
-    Address, String, Symbol,
+    testutils::{storage::Persistent as _, Address as _, Events, Ledger as _},
+    Address, String, Symbol, TryFromVal,
 };
 
 fn create_test_shipment(t: &TestSetup, id: &str) -> String {
@@ -43,12 +43,8 @@ fn test_extend_shipment_ttl_happy_path() {
         &String::from_str(&t.env, "Initial note"),
     );
     client.request_advance(&t.supplier, &shipment_id, &0, &20);
-    client.raise_dispute(
-        &t.buyer,
-        &shipment_id,
-        &1,
-        &String::from_str(&t.env, "Packaging damaged"),
-    );
+    submit_proof_for_milestone(&t, &shipment_id, 1);
+    client.raise_dispute(&t.buyer, &shipment_id, &1);
 
     // Snapshot shipment state before TTL extension
     let shipment_before = client.get_shipment(&shipment_id);
@@ -65,6 +61,8 @@ fn test_extend_shipment_ttl_happy_path() {
 
     // Permissionless call: any arbitrary caller can extend TTL
     client.extend_shipment_ttl(&shipment_id);
+    // `events().all()` only covers the latest invocation, so capture it now.
+    let events = t.env.events().all();
 
     // Verify persistent TTLs were extended
     t.env.as_contract(&t.contract_id, || {
@@ -127,12 +125,11 @@ fn test_extend_shipment_ttl_happy_path() {
     }
 
     // Verify event was emitted
-    let events = t.env.events().all();
     let found = events.iter().any(|e| {
         if e.0 == t.contract_id {
             // Check topic
             if e.1.len() >= 2 {
-                let topic0: Symbol = e.1.get(0).unwrap().try_into().unwrap_or(Symbol::new(&t.env, ""));
+                let topic0: Symbol = Symbol::try_from_val(&t.env, &e.1.get(0).unwrap()).unwrap_or(Symbol::new(&t.env, ""));
                 return topic0 == Symbol::new(&t.env, "shipment_ttl_extended");
             }
         }

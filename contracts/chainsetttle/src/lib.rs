@@ -7409,6 +7409,11 @@ impl ChainSettleContract {
                 &DataKey::SupplierCollateral(shipment_id.clone()),
                 &effective_collateral,
             );
+            env.storage().persistent().extend_ttl(
+                &DataKey::SupplierCollateral(shipment_id.clone()),
+                constants::TTL_INITIAL_LEDGERS,
+                constants::TTL_MAX_LEDGERS,
+            );
         }
 
         // Normalise milestones: clear caller-supplied runtime state but preserve deadline fields.
@@ -7490,6 +7495,11 @@ impl ChainSettleContract {
                 response_deadline,
                 penalty_bps,
             },
+        );
+        env.storage().persistent().extend_ttl(
+            &DataKey::CancelPolicy(shipment_id.clone()),
+            constants::TTL_INITIAL_LEDGERS,
+            constants::TTL_MAX_LEDGERS,
         );
         env.storage().persistent().extend_ttl(
             &DataKey::Shipment(shipment_id.clone()),
@@ -7657,6 +7667,11 @@ impl ChainSettleContract {
             env.storage().persistent().set(
                 &DataKeyExt::ShipmentFeeBps(shipment_id.clone()),
                 &effective_bps,
+            );
+            env.storage().persistent().extend_ttl(
+                &DataKeyExt::ShipmentFeeBps(shipment_id.clone()),
+                constants::TTL_INITIAL_LEDGERS,
+                constants::TTL_MAX_LEDGERS,
             );
         }
 
@@ -8339,6 +8354,11 @@ impl ChainSettleContract {
             amount_advanced: 0,
         };
         env.storage().persistent().set(&advance_key, &request);
+        env.storage().persistent().extend_ttl(
+            &advance_key,
+            constants::TTL_INITIAL_LEDGERS,
+            constants::TTL_MAX_LEDGERS,
+        );
 
         env.events().publish(
             (Symbol::new(&env, "advance_requested"), shipment_id.clone()),
@@ -8886,6 +8906,11 @@ impl ChainSettleContract {
         env.storage().persistent().set(
             &DataKey::ProofSubmittedAt(shipment_id.clone(), milestone_index),
             &current_ledger,
+        );
+        env.storage().persistent().extend_ttl(
+            &DataKey::ProofSubmittedAt(shipment_id.clone(), milestone_index),
+            constants::TTL_INITIAL_LEDGERS,
+            constants::TTL_MAX_LEDGERS,
         );
 
         // Increment and persist the evidence count for this milestone.
@@ -14063,6 +14088,11 @@ impl ChainSettleContract {
             &DataKey::ProofSubmittedAt(shipment_id.clone(), milestone_index),
             &current_ledger,
         );
+        env.storage().persistent().extend_ttl(
+            &DataKey::ProofSubmittedAt(shipment_id.clone(), milestone_index),
+            constants::TTL_INITIAL_LEDGERS,
+            constants::TTL_MAX_LEDGERS,
+        );
 
         let evidence_key = DataKey::EvidenceCount(shipment_id.clone(), milestone_index);
         let current_evidence_count: u32 =
@@ -16811,7 +16841,7 @@ impl ChainSettleContract {
         let shipment_key = DataKey::Shipment(shipment_id.clone());
         env.storage().persistent().extend_ttl(
             &shipment_key,
-            constants::TTL_INITIAL_LEDGERS,
+            constants::TTL_MAX_LEDGERS,
             constants::TTL_MAX_LEDGERS,
         );
 
@@ -21060,23 +21090,8 @@ impl ChainSettleContract {
             .get(&DataKeyExt3::ProofSubmitters(shipment_id.clone()))
             .unwrap_or_else(|| Vec::new(env));
         if submitters.is_empty() {
-            // #551: consortium shipments — the milestone's assigned supplier submits proof.
-            let is_consortium: bool = env
-                .storage()
-                .persistent()
-                .get(&DataKeyExt4::IsConsortium(shipment_id.clone()))
-                .unwrap_or(false);
-            if is_consortium {
-                return env
-                    .storage()
-                    .persistent()
-                    .get(&DataKeyExt4::MilestoneSupplier(
-                        shipment_id.clone(),
-                        milestone_index,
-                    ))
-                    .unwrap_or_else(|| shipment.supplier.clone());
-            }
-            return shipment.supplier.clone();
+            // #551 consortium member or #552 approved substitute, else the supplier.
+            return Self::effective_milestone_supplier(env, shipment, shipment_id, milestone_index);
         }
         submitters
             .get(milestone_index)
@@ -21093,9 +21108,21 @@ impl ChainSettleContract {
         caller.require_auth();
         let designated =
             Self::designated_proof_submitter(env, shipment, shipment_id, milestone_index);
-        if *caller != designated {
-            panic!("unauthorized");
+        if *caller == designated {
+            return;
         }
+        // No explicit `proof_submitters` configured: logistics keeps its default
+        // right to submit (in-transit) proof alongside the supplier.
+        let has_explicit_submitters = env
+            .storage()
+            .persistent()
+            .get::<_, Vec<Address>>(&DataKeyExt3::ProofSubmitters(shipment_id.clone()))
+            .map(|s| !s.is_empty())
+            .unwrap_or(false);
+        if !has_explicit_submitters && *caller == shipment.logistics {
+            return;
+        }
+        panic!("unauthorized");
     }
 
     fn assert_inspection_complete(env: &Env, shipment_id: &String, milestone_index: u32) {
@@ -21607,9 +21634,10 @@ impl ChainSettleContract {
             ($k:expr) => {{
                 let key = $k;
                 if env.storage().persistent().has(&key) {
+                    // Threshold == extend_to: always top up to the max TTL.
                     env.storage().persistent().extend_ttl(
                         &key,
-                        constants::TTL_INITIAL_LEDGERS,
+                        constants::TTL_MAX_LEDGERS,
                         constants::TTL_MAX_LEDGERS,
                     );
                 }

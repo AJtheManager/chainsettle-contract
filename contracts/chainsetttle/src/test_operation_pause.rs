@@ -4,7 +4,7 @@ use super::*;
 use crate::test_common::{build_milestones, default_options, setup, submit_proof_for_milestone, TestSetup};
 use soroban_sdk::{
     testutils::{Address as _, Events},
-    Address, String, Symbol,
+    Address, String, Symbol, TryFromVal,
 };
 
 fn create_test_shipment(t: &TestSetup, id: &str) -> String {
@@ -194,8 +194,8 @@ fn test_operation_paused_event_emission() {
     let events = t.env.events().all();
     let found = events.iter().any(|e| {
         if e.0 == t.contract_id && e.1.len() >= 2 {
-            let topic0: Symbol = e.1.get(0).unwrap().try_into().unwrap_or(Symbol::new(&t.env, ""));
-            let topic1: Symbol = e.1.get(1).unwrap().try_into().unwrap_or(Symbol::new(&t.env, ""));
+            let topic0: Symbol = Symbol::try_from_val(&t.env, &e.1.get(0).unwrap()).unwrap_or(Symbol::new(&t.env, ""));
+            let topic1: Symbol = Symbol::try_from_val(&t.env, &e.1.get(1).unwrap()).unwrap_or(Symbol::new(&t.env, ""));
             return topic0 == Symbol::new(&t.env, "operation_paused_set") && topic1 == op;
         }
         false

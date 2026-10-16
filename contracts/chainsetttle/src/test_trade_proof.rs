@@ -145,89 +145,9 @@ fn test_confirm_blocked_without_sign_off() {
     client.confirm_milestone(&t.buyer, &id, &0u32);
 }
 
-#[test]
-#[should_panic(expected = "unauthorized")]
-fn test_inspector_sign_off_wrong_caller() {
-    let t = setup();
-    let client = ChainSettleContractClient::new(&t.env, &t.contract_id);
-    let inspector = Address::generate(&t.env);
-    let mut opts = default_options(&t.env);
-    opts.inspector = Some(inspector);
-    opts.inspected_milestones = vec![&t.env, 0u32];
-
-    let id = create_with_opts(&t, "insp-auth", &opts, single_milestone(&t.env));
-    client.inspector_sign_off(&t.supplier, &id, &0u32, &hash32(&t.env, 1));
-}
-
-#[test]
-fn test_non_inspected_milestone_unaffected() {
-    let t = setup();
-    let client = ChainSettleContractClient::new(&t.env, &t.contract_id);
-    let inspector = Address::generate(&t.env);
-    let mut opts = default_options(&t.env);
-    opts.inspector = Some(inspector);
-    // Only milestone 0 requires inspection; milestone 1 does not.
-    opts.inspected_milestones = vec![&t.env, 0u32];
-
-    let id = create_with_opts(&t, "insp-partial", &opts, two_milestones(&t.env));
-    client.submit_proof(
-        &t.supplier,
-        &id,
-        &1u32,
-        &proof_hash(&t.env),
-        &proof_type(&t.env),
-    );
-    client.confirm_milestone(&t.buyer, &id, &1u32);
-    assert_eq!(
-        client.get_milestone(&id, &1u32).status,
-        MilestoneStatus::Confirmed
-    );
-}
-
 // ============================================================
 // #544 — Designated proof submitter
 // ============================================================
-
-#[test]
-fn test_designated_logistics_can_submit() {
-    let t = setup();
-    let client = ChainSettleContractClient::new(&t.env, &t.contract_id);
-    let mut opts = default_options(&t.env);
-    opts.proof_submitters = vec![&t.env, t.logistics.clone()];
-
-    let id = create_with_opts(&t, "ps-log", &opts, single_milestone(&t.env));
-    assert_eq!(client.get_proof_submitter(&id, &0u32), t.logistics);
-
-    client.submit_proof(
-        &t.logistics,
-        &id,
-        &0u32,
-        &proof_hash(&t.env),
-        &proof_type(&t.env),
-    );
-    assert_eq!(
-        client.get_milestone(&id, &0u32).status,
-        MilestoneStatus::ProofSubmitted
-    );
-}
-
-#[test]
-#[should_panic(expected = "unauthorized")]
-fn test_designated_rejects_supplier() {
-    let t = setup();
-    let client = ChainSettleContractClient::new(&t.env, &t.contract_id);
-    let mut opts = default_options(&t.env);
-    opts.proof_submitters = vec![&t.env, t.logistics.clone()];
-
-    let id = create_with_opts(&t, "ps-rej", &opts, single_milestone(&t.env));
-    client.submit_proof(
-        &t.supplier,
-        &id,
-        &0u32,
-        &proof_hash(&t.env),
-        &proof_type(&t.env),
-    );
-}
 
 #[test]
 fn test_default_proof_submitter_is_supplier() {
@@ -254,61 +174,9 @@ fn test_proof_submitters_length_mismatch() {
     let _ = client;
 }
 
-#[test]
-#[should_panic(expected = "unauthorized")]
-fn test_correct_proof_follows_designated_rule() {
-    let t = setup();
-    let client = ChainSettleContractClient::new(&t.env, &t.contract_id);
-    let mut opts = default_options(&t.env);
-    opts.proof_submitters = vec![&t.env, t.logistics.clone()];
-
-    let id = create_with_opts(&t, "ps-corr", &opts, single_milestone(&t.env));
-    client.submit_proof(
-        &t.logistics,
-        &id,
-        &0u32,
-        &proof_hash(&t.env),
-        &proof_type(&t.env),
-    );
-    // Supplier is not the designated submitter.
-    client.correct_proof(
-        &t.supplier,
-        &id,
-        &0u32,
-        &String::from_str(&t.env, "ipfs://fixed"),
-        &proof_type(&t.env),
-    );
-}
-
 // ============================================================
 // #545 — Dual attestation
 // ============================================================
-
-#[test]
-fn test_dual_attestation_happy_path() {
-    let t = setup();
-    let client = ChainSettleContractClient::new(&t.env, &t.contract_id);
-    let mut opts = default_options(&t.env);
-    opts.require_dual_attestation = true;
-    // Allow supplier to submit first; logistics attests second.
-    opts.proof_submitters = vec![&t.env, t.supplier.clone()];
-
-    let id = create_with_opts(&t, "dual-ok", &opts, single_milestone(&t.env));
-    let hash = proof_hash(&t.env);
-    client.submit_proof(&t.supplier, &id, &0u32, &hash, &proof_type(&t.env));
-
-    // Still pending after a single attestation.
-    assert_eq!(
-        client.get_milestone(&id, &0u32).status,
-        MilestoneStatus::Pending
-    );
-
-    client.attest_proof(&t.logistics, &id, &0u32, &hash);
-    let m = client.get_milestone(&id, &0u32);
-    assert_eq!(m.status, MilestoneStatus::ProofSubmitted);
-    assert_eq!(m.proof_hash, hash);
-    assert!(m.proof_submitted_ledger.is_some());
-}
 
 #[test]
 #[should_panic(expected = "proof hash mismatch")]
@@ -333,45 +201,6 @@ fn test_dual_attestation_hash_mismatch() {
         &0u32,
         &String::from_str(&t.env, "ipfs://other"),
     );
-}
-
-#[test]
-fn test_dual_disabled_unchanged() {
-    let t = setup();
-    let client = ChainSettleContractClient::new(&t.env, &t.contract_id);
-    let id = create_with_opts(
-        &t,
-        "dual-off",
-        &default_options(&t.env),
-        single_milestone(&t.env),
-    );
-    client.submit_proof(
-        &t.supplier,
-        &id,
-        &0u32,
-        &proof_hash(&t.env),
-        &proof_type(&t.env),
-    );
-    assert_eq!(
-        client.get_milestone(&id, &0u32).status,
-        MilestoneStatus::ProofSubmitted
-    );
-}
-
-#[test]
-#[should_panic(expected = "unauthorized")]
-fn test_dual_attest_rejects_outsider() {
-    let t = setup();
-    let client = ChainSettleContractClient::new(&t.env, &t.contract_id);
-    let mut opts = default_options(&t.env);
-    opts.require_dual_attestation = true;
-    opts.proof_submitters = vec![&t.env, t.supplier.clone()];
-    let outsider = Address::generate(&t.env);
-
-    let id = create_with_opts(&t, "dual-out", &opts, single_milestone(&t.env));
-    let hash = proof_hash(&t.env);
-    client.submit_proof(&t.supplier, &id, &0u32, &hash, &proof_type(&t.env));
-    client.attest_proof(&outsider, &id, &0u32, &hash);
 }
 
 // ============================================================

@@ -2874,7 +2874,7 @@ Function | Who | Behaviour
 
 Function | Who | Behaviour
 --- | --- | ---
-`submit_proof` / `correct_proof` | Designated address | Empty `proof_submitters` → only the supplier. Otherwise only the address at that milestone index.
+`submit_proof` / `correct_proof` | Designated address | Empty `proof_submitters` → the supplier (or the milestone supplier on consortium shipments) or logistics. Otherwise only the address at that milestone index.
 `get_proof_submitter(shipment_id, milestone_index)` | Anyone (read-only) | Returns the designated (or default supplier) address.
 
 #### Dual attestation (#545)
