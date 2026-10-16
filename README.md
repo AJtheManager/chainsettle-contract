@@ -130,3 +130,6 @@ MIT
 
 <!-- handsoff-issue-653 -->
 - #653: feat: claimable balance query per address
+
+<!-- handsoff-issue-667 -->
+- #667: feat: per-shipment event sequence number for indexers
