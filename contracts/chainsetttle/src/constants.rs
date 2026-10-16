@@ -83,3 +83,10 @@ pub const DEFAULT_MAX_SUMMARY_BATCH: u32 = 50;
 /// Maximum entries retained in a per-address dispute history (#577), ring-buffer
 /// style like `SHIPMENT_AUDIT_LOG_MAX_ENTRIES` (oldest dropped on overflow).
 pub const DISPUTE_HISTORY_MAX_ENTRIES: usize = 100;
+
+/// Maximum byte length of a metadata value that may be stored under an
+/// indexed metadata key (#662). Keeps index storage keys bounded.
+pub const MAX_METADATA_INDEX_VALUE_LEN: u32 = 128;
+
+/// Maximum shipment IDs held in a single (metadata key, value) index bucket (#662).
+pub const MAX_METADATA_INDEX_ENTRIES: u32 = 100;
