@@ -83,3 +83,8 @@ pub const DEFAULT_MAX_SUMMARY_BATCH: u32 = 50;
 /// Maximum entries retained in a per-address dispute history (#577), ring-buffer
 /// style like `SHIPMENT_AUDIT_LOG_MAX_ENTRIES` (oldest dropped on overflow).
 pub const DISPUTE_HISTORY_MAX_ENTRIES: usize = 100;
+
+/// Default per-milestone cap on buyer soft-rejects of a submitted proof (#612)
+/// when the admin has not configured an override via `set_max_proof_rejects`.
+/// Once a milestone reaches this cap, the buyer must open a formal dispute.
+pub const DEFAULT_MAX_PROOF_REJECTS: u32 = 3;
