@@ -125,3 +125,8 @@ PRs welcome. Run `cargo fmt` and `cargo test` before submitting.
 ## License
 
 MIT
+
+## Handsoff notes
+
+<!-- handsoff-issue-613 -->
+- #613: feat: list shipments by category
