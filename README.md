@@ -125,3 +125,8 @@ PRs welcome. Run `cargo fmt` and `cargo test` before submitting.
 ## License
 
 MIT
+
+## Handsoff notes
+
+<!-- handsoff-issue-618 -->
+- #618: feat: force majeure declaration that suspends deadlines and penalties
