@@ -97,3 +97,14 @@ pub const MAX_LATE_CONFIRM_FEE_BPS: u32 = 2_000;
 /// Maximum number of grace ledgers a shipment creator may configure before
 /// the late-confirmation fee (#614) starts accruing. ~30 days at 5 s/ledger.
 pub const MAX_LATE_CONFIRM_GRACE_LEDGERS: u32 = 518_400;
+
+/// Default maximum customs-hold duration (in ledgers) applied when the admin
+/// has not configured an override via `set_max_customs_hold_ledgers` (#615).
+/// ~30 days at 5 s/ledger. A customs hold pauses the milestone deadline and
+/// late-penalty clock, and ends automatically once this many ledgers elapse.
+pub const DEFAULT_MAX_CUSTOMS_HOLD_LEDGERS: u32 = 518_400;
+
+/// Absolute upper bound on the admin-configurable maximum customs-hold
+/// duration (#615). ~180 days at 5 s/ledger, so a hold can never pause a
+/// milestone deadline indefinitely.
+pub const MAX_CUSTOMS_HOLD_LEDGERS: u32 = 3_110_400;
