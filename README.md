@@ -125,3 +125,8 @@ PRs welcome. Run `cargo fmt` and `cargo test` before submitting.
 ## License
 
 MIT
+
+## Handsoff notes
+
+<!-- handsoff-issue-645 -->
+- #645: feat: keeper bounty for permissionless maintenance calls
