@@ -130,3 +130,6 @@ MIT
 
 <!-- handsoff-issue-645 -->
 - #645: feat: keeper bounty for permissionless maintenance calls
+
+<!-- handsoff-issue-646 -->
+- #646: feat: batch processing of expired shipments
