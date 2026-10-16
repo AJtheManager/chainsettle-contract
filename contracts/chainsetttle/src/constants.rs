@@ -88,3 +88,12 @@ pub const DISPUTE_HISTORY_MAX_ENTRIES: usize = 100;
 /// when the admin has not configured an override via `set_max_proof_rejects`.
 /// Once a milestone reaches this cap, the buyer must open a formal dispute.
 pub const DEFAULT_MAX_PROOF_REJECTS: u32 = 3;
+
+/// Maximum basis points a shipment creator may configure for the
+/// late-confirmation fee (#614) charged to the buyer when they confirm a
+/// milestone after the grace period. 2000 = 20% of the milestone amount.
+pub const MAX_LATE_CONFIRM_FEE_BPS: u32 = 2_000;
+
+/// Maximum number of grace ledgers a shipment creator may configure before
+/// the late-confirmation fee (#614) starts accruing. ~30 days at 5 s/ledger.
+pub const MAX_LATE_CONFIRM_GRACE_LEDGERS: u32 = 518_400;
