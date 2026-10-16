@@ -38,6 +38,16 @@ pub const DEFAULT_EMERGENCY_FREEZE_SUPERMAJORITY_BPS: u32 = 8_000;
 /// Max shipments accepted by `batch_cancel_shipments` (#580) in one call.
 pub const MAX_BATCH_CANCEL_SHIPMENTS: u32 = 20;
 
+/// Max proof entries accepted by `batch_submit_proofs` (#666) in one call.
+pub const MAX_BATCH_PROOF_SUBMISSIONS: u32 = 20;
+
+/// Max arbiters accepted by `batch_add_arbiters_to_pool` (#663) in one call.
+pub const MAX_BATCH_ADD_ARBITERS: u32 = 20;
+
+/// Smallest panel size accepted for automatic panel escalation (#665),
+/// matching the minimum enforced by `assign_dispute_panel`.
+pub const MIN_ESCALATION_PANEL_SIZE: u32 = 3;
+
 /// Maximum basis points a shipment creator may configure for a value-scaled
 /// dispute bond (#391) when the admin has not set a stricter cap via
 /// `set_max_dispute_bond_bps`. 2000 = 20% of shipment value.

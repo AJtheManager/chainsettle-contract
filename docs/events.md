@@ -88,7 +88,7 @@ Emitted by `resolve_dispute` (arbiter-driven) and `resolve_dispute_timeout`
 |---|---|---|
 | `shipment_id` | `String` | The shipment identifier. |
 | `milestone_index` | `u32` | Index of the resolved milestone. |
-| `resolution` | `Symbol` | `"supplier"` if the disputed funds were released to the supplier, `"buyer"` if refunded/withheld from the supplier. |
+| `resolution` | `Symbol` | `"supplier"` if the disputed funds were released to the supplier, `"buyer"` if refunded/withheld from the supplier, `"split"` if `resolve_dispute_split` divided them by percentage (see [dispute-split-resolution.md](dispute-split-resolution.md)). |
 | `resolver` | `Address` | The arbiter who resolved the dispute (for a timeout resolution, the shipment's designated arbiter). |
 
 ### ShipmentCancelled
