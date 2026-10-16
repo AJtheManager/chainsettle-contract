@@ -130,3 +130,6 @@ MIT
 
 <!-- handsoff-issue-618 -->
 - #618: feat: force majeure declaration that suspends deadlines and penalties
+
+<!-- handsoff-issue-619 -->
+- #619: feat: exclude paused time from milestone deadlines
