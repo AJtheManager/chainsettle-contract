@@ -125,3 +125,8 @@ PRs welcome. Run `cargo fmt` and `cargo test` before submitting.
 ## License
 
 MIT
+
+## Handsoff notes
+
+<!-- handsoff-issue-668 -->
+- #668: feat: shipment-wide dispute freezing all milestones
