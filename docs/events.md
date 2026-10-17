@@ -116,9 +116,8 @@ and `cast_dispute_vote` (when a panel reaches a decision).
 |---|---|---|
 | `shipment_id` | `String` | The shipment identifier. |
 | `milestone_index` | `u32` | Index of the resolved milestone. |
-| `resolution` | `Symbol` | `"supplier"` if the disputed funds went to the supplier, `"buyer"` if refunded or withheld. |
-| `resolver` | `Address` | The resolving arbiter. For timeout resolution this is the shipment's arbiter. |
-| `reason` | `ResolutionReason` | **Added.** One of `ProofValid`, `ProofInvalid`, `ProofLate`, `InsufficientEvidence`, `MutualSettlement`. When no reason is given it defaults to `ProofValid` for a `"supplier"` resolution and `ProofInvalid` otherwise. |
+| `resolution` | `Symbol` | `"supplier"` if the disputed funds were released to the supplier, `"buyer"` if refunded/withheld from the supplier, `"split"` if `resolve_dispute_split` divided them by percentage (see [dispute-split-resolution.md](dispute-split-resolution.md)). |
+| `resolver` | `Address` | The arbiter who resolved the dispute (for a timeout resolution, the shipment's designated arbiter). |
 
 ### `shipment_cancelled`
 

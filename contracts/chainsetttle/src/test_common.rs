@@ -219,3 +219,75 @@ pub fn submit_proof_for_milestone(setup: &TestSetup, shipment_id: &String, miles
         &Symbol::new(&setup.env, "ipfs"),
     );
 }
+
+// ============================================================
+// PROOF SUBMITTER AUTHORIZATION MATRIX FIXTURES (#696)
+// ============================================================
+
+/// Build a shipment with a caller-supplied `ShipmentOptions`, so tests can
+/// exercise the proof-submitter authorization matrix across configurations
+/// (default, explicit list, consortium, substitute, dual attestation).
+pub fn create_shipment_with_options(
+    client: &ChainSettleContractClient,
+    env: &Env,
+    shipment_id: &String,
+    buyer: &Address,
+    supplier: &Address,
+    logistics: &Address,
+    arbiter: &Address,
+    token_id: &Address,
+    total_amount: i128,
+    options: &ShipmentOptions,
+) {
+    client.create_shipment(
+        shipment_id,
+        &single_buyer_vec(env, buyer),
+        supplier,
+        logistics,
+        arbiter,
+        token_id,
+        &total_amount,
+        &build_milestones(env),
+        options,
+    );
+}
+
+/// Attempt `submit_proof` as `caller`, returning `Ok(())` on success or the
+/// contract error on rejection. Used by the authorization matrix to assert
+/// both allowed and rejected callers without aborting the test.
+pub fn try_submit_proof(
+    setup: &TestSetup,
+    caller: &Address,
+    shipment_id: &String,
+    milestone_index: u32,
+) -> Result<(), Error> {
+    let client = ChainSettleContractClient::new(&setup.env, &setup.contract_id);
+    let proof = String::from_str(&setup.env, "proof_hash_123");
+    client.try_submit_proof(
+        caller,
+        shipment_id,
+        &milestone_index,
+        &proof,
+        &Symbol::new(&setup.env, "ipfs"),
+    )
+}
+
+/// Attempt `correct_proof` as `caller`, returning `Ok(())` on success or the
+/// contract error on rejection. Used by the authorization matrix to assert
+/// both allowed and rejected callers without aborting the test.
+pub fn try_correct_proof(
+    setup: &TestSetup,
+    caller: &Address,
+    shipment_id: &String,
+    milestone_index: u32,
+) -> Result<(), Error> {
+    let client = ChainSettleContractClient::new(&setup.env, &setup.contract_id);
+    let proof = String::from_str(&setup.env, "corrected_proof_hash");
+    client.try_correct_proof(
+        caller,
+        shipment_id,
+        &milestone_index,
+        &proof,
+        &Symbol::new(&setup.env, "ipfs"),
+    )
+}

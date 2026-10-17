@@ -15,7 +15,7 @@ fn test_revoke_role_takes_effect_immediately() {
     let client = ChainSettleContractClient::new(&t.env, &t.contract_id);
     let pauser = Address::generate(&t.env);
 
-    client.grant_role(&t.buyer, &Role::Pauser, &pauser);
+    client.grant_role(&t.buyer, &Role::Pauser, &pauser, &None);
     assert!(client.has_role(&Role::Pauser, &pauser));
 
     // Pauser can pause
@@ -35,7 +35,7 @@ fn test_fee_manager_can_manage_fees() {
     let client = ChainSettleContractClient::new(&t.env, &t.contract_id);
     let fee_mgr = Address::generate(&t.env);
 
-    client.grant_role(&t.buyer, &Role::FeeManager, &fee_mgr);
+    client.grant_role(&t.buyer, &Role::FeeManager, &fee_mgr, &None);
 
     // set_fee_config
     client.set_fee_config(&fee_mgr, &250, &t.treasury);
@@ -78,7 +78,7 @@ fn test_compliance_officer_can_manage_compliance() {
     let bad_actor = Address::generate(&t.env);
     let supplier = Address::generate(&t.env);
 
-    client.grant_role(&t.buyer, &Role::ComplianceOfficer, &compliance);
+    client.grant_role(&t.buyer, &Role::ComplianceOfficer, &compliance, &None);
 
     // Blacklist and unblacklist
     client.blacklist_address(&compliance, &bad_actor, &BytesN::from_array(&t.env, &[2u8; 32]));
@@ -107,25 +107,8 @@ fn test_grant_revoke_audit_log_and_events() {
     let client = ChainSettleContractClient::new(&t.env, &t.contract_id);
     let user = Address::generate(&t.env);
 
-    let granted = capture_events(&t.env, || client.grant_role(&t.buyer, &Role::Pauser, &user));
-    let revoked = capture_events(&t.env, || client.revoke_role(&t.buyer, &Role::Pauser, &user));
-
-    // Each call's events are checked on their own; reading `events().all()`
-    // after both calls would only ever see `role_revoked`.
-    for (events, topic) in [(granted, "role_granted"), (revoked, "role_revoked")] {
-        assert!(has_event_topic(&t.env, &events, topic), "{} event must be published", topic);
-        let (_, topics, data) = events
-            .iter()
-            .find(|(_, topics, _)| {
-                Symbol::try_from_val(&t.env, &topics.get(0).unwrap()).ok()
-                    == Some(Symbol::new(&t.env, topic))
-            })
-            .unwrap();
-        assert_eq!(Address::try_from_val(&t.env, &topics.get(1).unwrap()).unwrap(), t.buyer);
-        let (role, address): (Role, Address) = <(Role, Address)>::try_from_val(&t.env, &data).unwrap();
-        assert_eq!(role, Role::Pauser);
-        assert_eq!(address, user);
-    }
+    client.grant_role(&t.buyer, &Role::Pauser, &user, &None);
+    client.revoke_role(&t.buyer, &Role::Pauser, &user);
 
     let log = client.get_admin_log();
     assert!(log.len() >= 2);

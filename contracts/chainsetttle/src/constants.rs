@@ -24,6 +24,9 @@ pub const SHIPMENT_AUDIT_LOG_MAX_ENTRIES: usize = 20;
 /// Maximum shipments returned per page in list_shipments.
 pub const LIST_SHIPMENTS_MAX_PAGE: u32 = 50;
 
+/// Maximum shipments returned per page in `get_shipments_by_token` (#629).
+pub const LIST_SHIPMENTS_BY_TOKEN_MAX_PAGE: u32 = 50;
+
 /// Default maximum number of milestones allowed per shipment when the admin
 /// has not configured an override (#364). Chosen well above any milestone
 /// count exercised by existing tests/benchmarks so default behaviour is
@@ -37,6 +40,16 @@ pub const DEFAULT_EMERGENCY_FREEZE_SUPERMAJORITY_BPS: u32 = 8_000;
 
 /// Max shipments accepted by `batch_cancel_shipments` (#580) in one call.
 pub const MAX_BATCH_CANCEL_SHIPMENTS: u32 = 20;
+
+/// Max proof entries accepted by `batch_submit_proofs` (#666) in one call.
+pub const MAX_BATCH_PROOF_SUBMISSIONS: u32 = 20;
+
+/// Max arbiters accepted by `batch_add_arbiters_to_pool` (#663) in one call.
+pub const MAX_BATCH_ADD_ARBITERS: u32 = 20;
+
+/// Smallest panel size accepted for automatic panel escalation (#665),
+/// matching the minimum enforced by `assign_dispute_panel`.
+pub const MIN_ESCALATION_PANEL_SIZE: u32 = 3;
 
 /// Maximum basis points a shipment creator may configure for a value-scaled
 /// dispute bond (#391) when the admin has not set a stricter cap via
@@ -83,3 +96,8 @@ pub const DEFAULT_MAX_SUMMARY_BATCH: u32 = 50;
 /// Maximum entries retained in a per-address dispute history (#577), ring-buffer
 /// style like `SHIPMENT_AUDIT_LOG_MAX_ENTRIES` (oldest dropped on overflow).
 pub const DISPUTE_HISTORY_MAX_ENTRIES: usize = 100;
+
+/// Maximum number of parties checked against the external compliance registry
+/// per `create_shipment` call (#652). Bounds the number of cross-contract
+/// calls so a single shipment cannot exhaust the instruction budget.
+pub const MAX_COMPLIANCE_PARTIES: u32 = 8;

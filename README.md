@@ -64,7 +64,7 @@ The core flow above is extended by optional, admin- or party-configured features
 - **Queries:** shipment summaries, cost estimates, completion percentage, reputation counters, paginated lists
 - **Events:** every state change publishes an event. See [`docs/events.md`](docs/events.md) for each topic, its payload shape and the functions that emit it
 
-For the full API, see the doc comments on each `pub fn` in [`lib.rs`](contracts/chainsetttle/src/lib.rs). Topic notes live in [`docs/`](docs/): [events](docs/events.md), [tokens](docs/tokens.md) and [completion percentage](docs/completion-percentage.md).
+For the full API, see the doc comments on each `pub fn` in [`lib.rs`](contracts/chainsetttle/src/lib.rs). Topic notes live in [`docs/`](docs/): [events](docs/events.md), [tokens](docs/tokens.md), [completion percentage](docs/completion-percentage.md) and [error catalogue](docs/errors.md).
 
 ## Project structure
 
@@ -126,3 +126,11 @@ PRs welcome. Run `cargo fmt` and `cargo test` before submitting.
 ## License
 
 MIT
+
+## Handsoff notes
+
+<!-- handsoff-issue-653 -->
+- #653: feat: claimable balance query per address
+
+<!-- handsoff-issue-667 -->
+- #667: feat: per-shipment event sequence number for indexers
