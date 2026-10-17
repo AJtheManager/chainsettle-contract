@@ -24,6 +24,9 @@ pub const SHIPMENT_AUDIT_LOG_MAX_ENTRIES: usize = 20;
 /// Maximum shipments returned per page in list_shipments.
 pub const LIST_SHIPMENTS_MAX_PAGE: u32 = 50;
 
+/// Maximum shipments returned per page in `get_shipments_by_token` (#629).
+pub const LIST_SHIPMENTS_BY_TOKEN_MAX_PAGE: u32 = 50;
+
 /// Default maximum number of milestones allowed per shipment when the admin
 /// has not configured an override (#364). Chosen well above any milestone
 /// count exercised by existing tests/benchmarks so default behaviour is
@@ -84,27 +87,7 @@ pub const DEFAULT_MAX_SUMMARY_BATCH: u32 = 50;
 /// style like `SHIPMENT_AUDIT_LOG_MAX_ENTRIES` (oldest dropped on overflow).
 pub const DISPUTE_HISTORY_MAX_ENTRIES: usize = 100;
 
-/// Default per-milestone cap on buyer soft-rejects of a submitted proof (#612)
-/// when the admin has not configured an override via `set_max_proof_rejects`.
-/// Once a milestone reaches this cap, the buyer must open a formal dispute.
-pub const DEFAULT_MAX_PROOF_REJECTS: u32 = 3;
-
-/// Maximum basis points a shipment creator may configure for the
-/// late-confirmation fee (#614) charged to the buyer when they confirm a
-/// milestone after the grace period. 2000 = 20% of the milestone amount.
-pub const MAX_LATE_CONFIRM_FEE_BPS: u32 = 2_000;
-
-/// Maximum number of grace ledgers a shipment creator may configure before
-/// the late-confirmation fee (#614) starts accruing. ~30 days at 5 s/ledger.
-pub const MAX_LATE_CONFIRM_GRACE_LEDGERS: u32 = 518_400;
-
-/// Default maximum customs-hold duration (in ledgers) applied when the admin
-/// has not configured an override via `set_max_customs_hold_ledgers` (#615).
-/// ~30 days at 5 s/ledger. A customs hold pauses the milestone deadline and
-/// late-penalty clock, and ends automatically once this many ledgers elapse.
-pub const DEFAULT_MAX_CUSTOMS_HOLD_LEDGERS: u32 = 518_400;
-
-/// Absolute upper bound on the admin-configurable maximum customs-hold
-/// duration (#615). ~180 days at 5 s/ledger, so a hold can never pause a
-/// milestone deadline indefinitely.
-pub const MAX_CUSTOMS_HOLD_LEDGERS: u32 = 3_110_400;
+/// Maximum number of parties checked against the external compliance registry
+/// per `create_shipment` call (#652). Bounds the number of cross-contract
+/// calls so a single shipment cannot exhaust the instruction budget.
+pub const MAX_COMPLIANCE_PARTIES: u32 = 8;
