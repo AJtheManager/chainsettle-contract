@@ -84,7 +84,7 @@ pub const DEFAULT_MAX_SUMMARY_BATCH: u32 = 50;
 /// style like `SHIPMENT_AUDIT_LOG_MAX_ENTRIES` (oldest dropped on overflow).
 pub const DISPUTE_HISTORY_MAX_ENTRIES: usize = 100;
 
-/// Maximum number of cold-chain sensor log hashes that may be appended to a
-/// single milestone (#616). Logs are append-only; once the cap is reached no
-/// further hashes can be recorded for that milestone.
-pub const MAX_SENSOR_LOGS_PER_MILESTONE: u32 = 32;
+/// Maximum number of parties checked against the external compliance registry
+/// per `create_shipment` call (#652). Bounds the number of cross-contract
+/// calls so a single shipment cannot exhaust the instruction budget.
+pub const MAX_COMPLIANCE_PARTIES: u32 = 8;

@@ -128,11 +128,8 @@ MIT
 
 ## Handsoff notes
 
-<!-- handsoff-issue-618 -->
-- #618: feat: force majeure declaration that suspends deadlines and penalties
+<!-- handsoff-issue-653 -->
+- #653: feat: claimable balance query per address
 
-<!-- handsoff-issue-619 -->
-- #619: feat: exclude paused time from milestone deadlines
-
-<!-- handsoff-issue-630 -->
-- #630: feat: list shipments created within a ledger range
+<!-- handsoff-issue-667 -->
+- #667: feat: per-shipment event sequence number for indexers
