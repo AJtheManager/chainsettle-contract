@@ -24,6 +24,9 @@ pub const SHIPMENT_AUDIT_LOG_MAX_ENTRIES: usize = 20;
 /// Maximum shipments returned per page in list_shipments.
 pub const LIST_SHIPMENTS_MAX_PAGE: u32 = 50;
 
+/// Maximum shipments returned per page in `get_shipments_by_token` (#629).
+pub const LIST_SHIPMENTS_BY_TOKEN_MAX_PAGE: u32 = 50;
+
 /// Default maximum number of milestones allowed per shipment when the admin
 /// has not configured an override (#364). Chosen well above any milestone
 /// count exercised by existing tests/benchmarks so default behaviour is
