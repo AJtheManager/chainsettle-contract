@@ -1,10 +1,13 @@
 #![cfg(test)]
 
 use super::*;
-use crate::test_common::{build_milestones, default_options, setup, submit_proof_for_milestone, TestSetup};
+use crate::test_common::{
+    build_milestones, capture_events, default_options, has_event_topic, setup,
+    submit_proof_for_milestone, TestSetup,
+};
 use soroban_sdk::{
-    testutils::{storage::Persistent as _, Address as _, Events, Ledger as _},
-    Address, String, Symbol, TryFromVal,
+    testutils::{storage::Persistent as _, Address as _, Ledger as _},
+    Address, String,
 };
 
 fn create_test_shipment(t: &TestSetup, id: &str) -> String {
@@ -60,9 +63,7 @@ fn test_extend_shipment_ttl_happy_path() {
     });
 
     // Permissionless call: any arbitrary caller can extend TTL
-    client.extend_shipment_ttl(&shipment_id);
-    // `events().all()` only covers the latest invocation, so capture it now.
-    let events = t.env.events().all();
+    let events = capture_events(&t.env, || client.extend_shipment_ttl(&shipment_id));
 
     // Verify persistent TTLs were extended
     t.env.as_contract(&t.contract_id, || {
@@ -125,17 +126,10 @@ fn test_extend_shipment_ttl_happy_path() {
     }
 
     // Verify event was emitted
-    let found = events.iter().any(|e| {
-        if e.0 == t.contract_id {
-            // Check topic
-            if e.1.len() >= 2 {
-                let topic0: Symbol = Symbol::try_from_val(&t.env, &e.1.get(0).unwrap()).unwrap_or(Symbol::new(&t.env, ""));
-                return topic0 == Symbol::new(&t.env, "shipment_ttl_extended");
-            }
-        }
-        false
-    });
-    assert!(found, "shipment_ttl_extended event must be published");
+    assert!(
+        has_event_topic(&t.env, &events, "shipment_ttl_extended"),
+        "shipment_ttl_extended event must be published"
+    );
 }
 
 #[test]

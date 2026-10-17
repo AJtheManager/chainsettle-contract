@@ -21845,6 +21845,12 @@ mod test_feat_earnings;
 mod test_slash_collateral;
 mod test_shipment_cost_estimate;
 mod test_granular_roles;
+#[cfg(test)]
+mod test_consortium_substitute_payouts;
+#[cfg(test)]
+mod test_symbol_limits;
+#[cfg(test)]
+mod test_events_doc;
 // Disabled: exercises milestone insurance holdback / oracle price-condition
 // APIs (see NEW_MILESTONE_FEATURES.md) that have not been implemented yet.
 // mod test_milestone_insurance_and_oracle;

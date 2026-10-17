@@ -178,6 +178,35 @@ pub fn create_standard_shipment(
 // 100 COMPREHENSIVE TESTS FOR CHAINSETTLE CONTRACT
 // ============================================================
 
+/// Event as returned by `env.events().all()`: (contract, topics, data).
+pub type CapturedEvent = (Address, soroban_sdk::Vec<soroban_sdk::Val>, soroban_sdk::Val);
+
+/// Runs `f` and returns only the events emitted by the contract invocation it
+/// makes.
+///
+/// `env.events().all()` only reports the most recent top-level invocation, so
+/// reading it after several calls silently drops the earlier calls' events.
+/// Wrap exactly one client call in `f` and inspect the returned events instead.
+/// `f` must make exactly one invocation: with none, the previous call's events
+/// would be returned; with several, only the last call's events are returned.
+pub fn capture_events<F: FnOnce()>(env: &Env, f: F) -> soroban_sdk::Vec<CapturedEvent> {
+    use soroban_sdk::testutils::Events as _;
+    f();
+    env.events().all()
+}
+
+/// Returns true when any event in `events` has `topic` as its first topic.
+pub fn has_event_topic(env: &Env, events: &soroban_sdk::Vec<CapturedEvent>, topic: &str) -> bool {
+    use soroban_sdk::TryFromVal;
+    let expected = Symbol::new(env, topic);
+    events.iter().any(|(_, topics, _)| {
+        topics
+            .get(0)
+            .and_then(|t| Symbol::try_from_val(env, &t).ok())
+            .map_or(false, |t| t == expected)
+    })
+}
+
 /// Submit a proof for `milestone_index` as the setup's supplier.
 pub fn submit_proof_for_milestone(setup: &TestSetup, shipment_id: &String, milestone_index: u32) {
     let client = ChainSettleContractClient::new(&setup.env, &setup.contract_id);
