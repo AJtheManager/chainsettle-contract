@@ -323,3 +323,159 @@ fn test_withdraw_collateral_more_than_posted_panics() {
     open_position(&s, &s.alice, 1_000, 0);
     s.client().withdraw_collateral(&s.alice, &1_001);
 }
+
+// ============================================================
+// ADDITIONAL TEST CASES
+// ============================================================
+
+#[test]
+fn test_multiple_borrowers_independent_positions() {
+    let s = setup();
+    seed_liquidity(&s, &[&s.d1], &[20_000]);
+    
+    open_position(&s, &s.alice, 3_000, 2_000);
+    open_position(&s, &s.bob, 4_000, 2_500);
+    
+    let pos_alice = s.client().get_position(&s.alice);
+    let pos_bob = s.client().get_position(&s.bob);
+    
+    assert_eq!(pos_alice.collateral, 3_000);
+    assert_eq!(pos_alice.debt, 2_000);
+    assert_eq!(pos_bob.collateral, 4_000);
+    assert_eq!(pos_bob.debt, 2_500);
+    
+    let (_, tb, _) = s.client().get_pool_info();
+    assert_eq!(tb, 4_500);
+}
+
+#[test]
+fn test_partial_collateral_withdrawal_with_debt() {
+    let s = setup();
+    seed_liquidity(&s, &[&s.d1], &[10_000]);
+    open_position(&s, &s.alice, 5_000, 2_000);
+    
+    // Withdraw collateral but maintain health factor
+    s.client().withdraw_collateral(&s.alice, &1_000);
+    
+    let pos = s.client().get_position(&s.alice);
+    assert_eq!(pos.collateral, 4_000);
+    assert_eq!(pos.debt, 2_000);
+    
+    let (num, den) = s.client().health_factor(&s.alice);
+    assert!(num >= den);
+}
+
+#[test]
+fn test_sequential_deposits_accumulate_correctly() {
+    let s = setup();
+    
+    s.client().deposit(&s.d1, &1_000);
+    s.client().deposit(&s.d1, &2_000);
+    s.client().deposit(&s.d1, &3_000);
+    
+    let balance = s.client().get_depositor_balance(&s.d1);
+    assert_eq!(balance, 6_000);
+    
+    let (td, _, _) = s.client().get_pool_info();
+    assert_eq!(td, 6_000);
+}
+
+#[test]
+fn test_sequential_withdrawals_decrease_correctly() {
+    let s = setup();
+    seed_liquidity(&s, &[&s.d1], &[10_000]);
+    
+    s.client().withdraw(&s.d1, &2_000);
+    s.client().withdraw(&s.d1, &3_000);
+    
+    let balance = s.client().get_depositor_balance(&s.d1);
+    assert_eq!(balance, 5_000);
+    
+    let (td, _, _) = s.client().get_pool_info();
+    assert_eq!(td, 5_000);
+}
+
+#[test]
+fn test_partial_repayment_improves_health_factor() {
+    let s = setup();
+    seed_liquidity(&s, &[&s.d1], &[10_000]);
+    open_position(&s, &s.alice, 2_000, 1_500);
+    
+    let (num_before, den_before) = s.client().health_factor(&s.alice);
+    
+    s.client().repay(&s.alice, &500);
+    
+    let (num_after, den_after) = s.client().health_factor(&s.alice);
+    
+    // Health factor should improve: higher ratio after partial repayment
+    assert!(num_after * den_before > num_before * den_after);
+}
+
+#[test]
+fn test_borrow_additional_amount_on_existing_position() {
+    let s = setup();
+    seed_liquidity(&s, &[&s.d1], &[10_000]);
+    open_position(&s, &s.alice, 5_000, 1_000);
+    
+    // Borrow more against existing collateral
+    s.client().borrow(&s.alice, &500);
+    
+    let pos = s.client().get_position(&s.alice);
+    assert_eq!(pos.collateral, 5_000);
+    assert_eq!(pos.debt, 1_500);
+    
+    let (_, tb, _) = s.client().get_pool_info();
+    assert_eq!(tb, 1_500);
+}
+
+#[test]
+fn test_add_collateral_to_existing_position() {
+    let s = setup();
+    seed_liquidity(&s, &[&s.d1], &[10_000]);
+    open_position(&s, &s.alice, 2_000, 1_500);
+    
+    // Add more collateral to improve position
+    token::StellarAssetClient::new(&s.env, &s.coll_id).mint(&s.alice, &1_000);
+    s.client().deposit_collateral(&s.alice, &1_000);
+    
+    let pos = s.client().get_position(&s.alice);
+    assert_eq!(pos.collateral, 3_000);
+    assert_eq!(pos.debt, 1_500);
+}
+
+#[test]
+#[should_panic(expected = "invalid amount")]
+fn test_zero_collateral_deposit_rejected() {
+    let s = setup();
+    s.client().deposit_collateral(&s.alice, &0i128);
+}
+
+#[test]
+fn test_multiple_depositors_withdraw_independently() {
+    let s = setup();
+    seed_liquidity(&s, &[&s.d1, &s.d2], &[5_000, 3_000]);
+    
+    s.client().withdraw(&s.d1, &2_000);
+    
+    assert_eq!(s.client().get_depositor_balance(&s.d1), 3_000);
+    assert_eq!(s.client().get_depositor_balance(&s.d2), 3_000);
+    
+    let (td, _, _) = s.client().get_pool_info();
+    assert_eq!(td, 6_000);
+}
+
+#[test]
+fn test_repay_exactly_outstanding_debt() {
+    let s = setup();
+    seed_liquidity(&s, &[&s.d1], &[10_000]);
+    open_position(&s, &s.alice, 3_000, 2_000);
+    
+    s.client().repay(&s.alice, &2_000);
+    
+    let pos = s.client().get_position(&s.alice);
+    assert_eq!(pos.debt, 0);
+    assert_eq!(pos.collateral, 3_000);
+    
+    let (_, tb, _) = s.client().get_pool_info();
+    assert_eq!(tb, 0);
+}
