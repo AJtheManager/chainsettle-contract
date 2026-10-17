@@ -5,7 +5,7 @@ extern crate std;
 use super::*;
 use soroban_sdk::{
     testutils::{Address as _, Ledger as _},
-    token, vec, Address, BytesN, String, Vec,
+    token, vec, Address, BytesN, String, TryFromVal, Vec,
 };
 use crate::test_common::*;
 

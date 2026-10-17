@@ -1,9 +1,11 @@
 #![cfg(test)]
 
 use super::*;
-use crate::test_common::{build_milestones, default_options, setup, submit_proof_for_milestone, TestSetup};
+use crate::test_common::{
+    build_milestones, capture_events, default_options, setup, submit_proof_for_milestone, TestSetup,
+};
 use soroban_sdk::{
-    testutils::{Address as _, Events},
+    testutils::Address as _,
     Address, String, Symbol, TryFromVal,
 };
 
@@ -187,18 +189,23 @@ fn test_operation_paused_event_emission() {
     let t = setup();
     let client = ChainSettleContractClient::new(&t.env, &t.contract_id);
     let admin = t.buyer.clone();
-
     let op = Symbol::new(&t.env, "dispute");
-    client.set_operation_paused(&admin, &op, &true);
 
-    let events = t.env.events().all();
-    let found = events.iter().any(|e| {
-        if e.0 == t.contract_id && e.1.len() >= 2 {
-            let topic0: Symbol = Symbol::try_from_val(&t.env, &e.1.get(0).unwrap()).unwrap_or(Symbol::new(&t.env, ""));
-            let topic1: Symbol = Symbol::try_from_val(&t.env, &e.1.get(1).unwrap()).unwrap_or(Symbol::new(&t.env, ""));
-            return topic0 == Symbol::new(&t.env, "operation_paused_set") && topic1 == op;
-        }
-        false
-    });
-    assert!(found, "operation_paused_set event must be published");
+    let paused_events = capture_events(&t.env, || client.set_operation_paused(&admin, &op, &true));
+    // A query in between must not hide the events captured above.
+    assert!(client.is_operation_paused(&op));
+    let resumed_events =
+        capture_events(&t.env, || client.set_operation_paused(&admin, &op, &false));
+
+    for (events, expected) in [(paused_events, true), (resumed_events, false)] {
+        let found = events.iter().any(|e| {
+            e.0 == t.contract_id
+                && e.1.len() >= 2
+                && Symbol::try_from_val(&t.env, &e.1.get(0).unwrap()).ok()
+                    == Some(Symbol::new(&t.env, "operation_paused_set"))
+                && Symbol::try_from_val(&t.env, &e.1.get(1).unwrap()).ok() == Some(op.clone())
+                && bool::try_from_val(&t.env, &e.2).ok() == Some(expected)
+        });
+        assert!(found, "operation_paused_set({}) event must be published", expected);
+    }
 }
