@@ -83,3 +83,8 @@ pub const DEFAULT_MAX_SUMMARY_BATCH: u32 = 50;
 /// Maximum entries retained in a per-address dispute history (#577), ring-buffer
 /// style like `SHIPMENT_AUDIT_LOG_MAX_ENTRIES` (oldest dropped on overflow).
 pub const DISPUTE_HISTORY_MAX_ENTRIES: usize = 100;
+
+/// Maximum number of parties checked against the external compliance registry
+/// per `create_shipment` call (#652). Bounds the number of cross-contract
+/// calls so a single shipment cannot exhaust the instruction budget.
+pub const MAX_COMPLIANCE_PARTIES: u32 = 8;
